@@ -2,6 +2,13 @@ import math
 from datetime import date
 from typing import Any
 
+from loan_calc.errors import (
+    InvalidPrepaymentError,
+    InvalidPrincipalError,
+    InvalidRateError,
+    InvalidTenureError,
+    LoanCalcError,
+)
 
 DEFAULT_CURRENCY = "INR"
 
@@ -30,17 +37,22 @@ def emi(principal: float, annual_rate: float, tenure_months: int) -> float:
         Monthly EMI rounded to 2 decimal places.
 
     Raises:
-        ValueError: If `tenure_months <= 0` or `principal <= 0`.
+        InvalidTenureError: If `tenure_months <= 0`.
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
 
     Example:
         >>> emi(1000000, 9, 240)  # doctest: +SKIP
         8996.97
     """
-    if tenure_months <= 0:
-        raise ValueError("tenure must be positive")
-    if principal <= 0:
-        raise ValueError("principal must be positive")
-    r = _monthly_rate(annual_rate)
+    if not isinstance(tenure_months, int) or tenure_months <= 0:
+        raise InvalidTenureError("tenure_months must be a positive integer")
+    if not isinstance(principal, (int, float)) or principal <= 0:
+        raise InvalidPrincipalError("principal must be a positive number")
+    if not isinstance(annual_rate, (int, float)) or annual_rate < 0:
+        raise InvalidRateError("annual_rate must be a non-negative number")
+
+    r = _monthly_rate(float(annual_rate))
     if r == 0:
         return round(principal / tenure_months, 2)
     f = (1 + r) ** tenure_months
@@ -57,6 +69,11 @@ def total_payment(principal: float, annual_rate: float, tenure_months: int) -> f
 
     Returns:
         Total paid amount rounded to 2 decimal places.
+
+    Raises:
+        InvalidTenureError: If `tenure_months <= 0`.
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
     """
     return round(emi(principal, annual_rate, tenure_months) * tenure_months, 2)
 
@@ -71,6 +88,11 @@ def total_interest(principal: float, annual_rate: float, tenure_months: int) -> 
 
     Returns:
         Total interest paid rounded to 2 decimal places.
+
+    Raises:
+        InvalidTenureError: If `tenure_months <= 0`.
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
     """
     return round(total_payment(principal, annual_rate, tenure_months) - principal, 2)
 
@@ -88,8 +110,16 @@ def amortisation_schedule(principal: float, annual_rate: float, tenure_months: i
 
     Returns:
         List of rows (dicts). Monetary values are rounded to 2 decimals.
+
+    Raises:
+        InvalidTenureError: If `tenure_months <= 0`.
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
     """
-    r = _monthly_rate(annual_rate)
+    # Validate at the public API boundary (and reuse the validated EMI computation).
+    _ = emi(principal, annual_rate, tenure_months)
+
+    r = _monthly_rate(float(annual_rate))
     instalment = emi(principal, annual_rate, tenure_months)
     balance = principal
     rows = []
@@ -126,9 +156,20 @@ def outstanding_after(principal: float, annual_rate: float, tenure_months: int, 
 
     Returns:
         The remaining balance after `months_paid` payments (rounded to 2 decimals).
+
+    Raises:
+        InvalidTenureError: If `tenure_months <= 0`.
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
+        InvalidTenureError: If `months_paid` is not an integer or is negative.
     """
-    if months_paid <= 0:
-        return round(principal, 2)
+    if not isinstance(months_paid, int) or months_paid < 0:
+        raise InvalidTenureError("months_paid must be a non-negative integer")
+
+    if months_paid == 0:
+        # Still validate the loan terms.
+        _ = emi(principal, annual_rate, tenure_months)
+        return round(float(principal), 2)
     sched = amortisation_schedule(principal, annual_rate, tenure_months)
     if months_paid > len(sched):
         return 0.0
@@ -191,11 +232,26 @@ def prepayment_savings(
         - new_tenure
         - interest_saved
         - interest_paid_before_prepayment
+
+    Raises:
+        InvalidTenureError: If `tenure_months <= 0` or `prepay_month` is out of range.
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
+        InvalidPrepaymentError: If `prepay_amount < 0` or non-numeric.
     """
+    if not isinstance(prepay_month, int):
+        raise InvalidTenureError("prepay_month must be an integer (1-based month)")
+    if not isinstance(prepay_amount, (int, float)) or prepay_amount < 0:
+        raise InvalidPrepaymentError("prepay_amount must be a non-negative number")
+
     instalment = emi(principal, annual_rate, tenure_months)
     sched = amortisation_schedule(principal, annual_rate, tenure_months)
+
+    if prepay_month < 1 or prepay_month > len(sched):
+        raise InvalidTenureError("prepay_month out of range for the given tenure")
+
     balance = sched[prepay_month - 1]["balance"]
-    new_balance = balance - prepay_amount
+    new_balance = balance - float(prepay_amount)
     if new_balance <= 0:
         months_left = 0
     else:
@@ -203,10 +259,6 @@ def prepayment_savings(
     original_left = tenure_months - prepay_month
     interest_paid_so_far = sum(row["interest"] for row in sched[:prepay_month])
     original_interest = total_interest(principal, annual_rate, tenure_months)
-    # Total interest with prepayment should compare apples-to-apples against the original
-    # loan's total paid amount (principal + original_interest). A lump-sum prepayment is
-    # still part of the principal repayment, so it must not be added on top of principal.
-    original_total = principal + original_interest
     new_total = instalment * prepay_month + prepay_amount + instalment * months_left
     new_interest = new_total - principal
     new_interest = min(new_interest, original_interest)
@@ -237,7 +289,14 @@ def compare_offers(principal: float, offers: list[dict[str, Any]]) -> list[dict[
     Notes:
         `total_cost` is computed as `total_interest + processing_fee` (it excludes
         the principal, which is constant across offers).
+
+    Raises:
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidTenureError: If any offer's tenure is invalid.
+        InvalidRateError: If any offer's rate is invalid.
     """
+    if not isinstance(principal, (int, float)) or principal <= 0:
+        raise InvalidPrincipalError("principal must be a positive number")
     out = []
     for o in offers:
         e = emi(principal, o["rate"], o["tenure"])
@@ -275,8 +334,21 @@ def eligible_amount(
     Returns:
         Eligible principal amount (rounded to 2 decimals). Returns 0.0 if the
         available EMI capacity is non-positive.
+
+    Raises:
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
+        InvalidTenureError: If `tenure_months <= 0` or not an integer.
     """
-    available = monthly_income * foir - existing_emis
+    if not isinstance(tenure_months, int) or tenure_months <= 0:
+        raise InvalidTenureError("tenure_months must be a positive integer")
+    if not isinstance(annual_rate, (int, float)) or annual_rate < 0:
+        raise InvalidRateError("annual_rate must be a non-negative number")
+    if not isinstance(monthly_income, (int, float)) or not isinstance(existing_emis, (int, float)):
+        raise LoanCalcError("income and existing_emis must be numbers")
+    if not isinstance(foir, (int, float)) or foir < 0 or foir > 1:
+        raise LoanCalcError("foir must be a number between 0 and 1")
+
+    available = float(monthly_income) * float(foir) - float(existing_emis)
     if available <= 0:
         return 0.0
     r = _monthly_rate(annual_rate)
@@ -295,10 +367,15 @@ def format_inr(amount: float) -> str:
     Returns:
         String formatted with rupee symbol, Indian grouping commas, and 2 decimals.
 
+    Raises:
+        LoanCalcError: If `amount` is non-numeric.
+
     Example:
         >>> format_inr(12345678.9)  # doctest: +SKIP
         '₹1,23,45,678.90'
     """
+    if not isinstance(amount, (int, float)):
+        raise LoanCalcError("amount must be a number")
     neg = amount < 0
     amount = abs(round(amount, 2))
     whole, frac = f"{amount:.2f}".split(".")
@@ -323,7 +400,12 @@ def schedule_to_csv(rows: list[dict[str, float]], path: str) -> None:
 
     Returns:
         None. The file is overwritten if it already exists.
+
+    Raises:
+        LoanCalcError: If `path` is not a string.
     """
+    if not isinstance(path, str):
+        raise LoanCalcError("path must be a string")
     with open(path, "w") as fh:
         fh.write("month,emi,interest,principal,balance\n")
         for r in rows:
@@ -341,7 +423,15 @@ def summary(principal: float, annual_rate: float, tenure_months: int, start: dat
 
     Returns:
         Dict of formatted strings including principal, EMI, totals, and last EMI month.
+
+    Raises:
+        InvalidTenureError: If `tenure_months <= 0`.
+        InvalidPrincipalError: If `principal <= 0` or non-numeric.
+        InvalidRateError: If `annual_rate < 0` or non-numeric.
+        LoanCalcError: If `start` is not a `date`.
     """
+    if start is not None and not isinstance(start, date):
+        raise LoanCalcError("start must be a datetime.date or None")
     start = start or date.today()
     e = emi(principal, annual_rate, tenure_months)
     end_year = start.year + (start.month - 1 + tenure_months) // 12

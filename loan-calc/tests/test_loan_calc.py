@@ -16,6 +16,13 @@ from loan_calc.calculator import (
     total_interest,
     total_payment,
 )
+from loan_calc.errors import (
+    InvalidPrepaymentError,
+    InvalidPrincipalError,
+    InvalidRateError,
+    InvalidTenureError,
+    LoanCalcError,
+)
 
 
 def test_emi_reference_case_10L_9pct_240m():
@@ -236,3 +243,72 @@ def test_emi_is_finite_for_reasonable_inputs():
     val = emi(123_456_789, 13.75, 180)
     assert math.isfinite(val)
     assert val > 0
+
+
+def test_validation_emi_invalid_principal():
+    with pytest.raises(InvalidPrincipalError):
+        emi(0, 9.0, 12)
+    with pytest.raises(InvalidPrincipalError):
+        emi("100000", 9.0, 12)  # type: ignore[arg-type]
+
+
+def test_validation_emi_invalid_rate():
+    with pytest.raises(InvalidRateError):
+        emi(100_000, -1.0, 12)
+    with pytest.raises(InvalidRateError):
+        emi(100_000, "9", 12)  # type: ignore[arg-type]
+
+
+def test_validation_emi_invalid_tenure():
+    with pytest.raises(InvalidTenureError):
+        emi(100_000, 9.0, 0)
+    with pytest.raises(InvalidTenureError):
+        emi(100_000, 9.0, 12.5)  # type: ignore[arg-type]
+
+
+def test_validation_outstanding_after_invalid_months_paid():
+    with pytest.raises(InvalidTenureError):
+        outstanding_after(100_000, 9.0, 12, -1)
+    with pytest.raises(InvalidTenureError):
+        outstanding_after(100_000, 9.0, 12, 1.2)  # type: ignore[arg-type]
+
+
+def test_validation_prepayment_invalid_inputs():
+    with pytest.raises(InvalidPrepaymentError):
+        prepayment_savings(100_000, 9.0, 12, 1, -10)
+    with pytest.raises(InvalidTenureError):
+        prepayment_savings(100_000, 9.0, 12, 0, 10_000)
+    with pytest.raises(InvalidTenureError):
+        prepayment_savings(100_000, 9.0, 12, 13, 10_000)
+
+
+def test_validation_compare_offers_invalid_principal():
+    with pytest.raises(InvalidPrincipalError):
+        compare_offers(0, [{"bank": "A", "rate": 9.0, "tenure": 12}])
+
+
+def test_validation_eligible_amount_invalid_inputs():
+    with pytest.raises(InvalidTenureError):
+        eligible_amount(100_000, 0.0, 9.0, 0)
+    with pytest.raises(InvalidRateError):
+        eligible_amount(100_000, 0.0, -1.0, 12)
+    with pytest.raises(LoanCalcError):
+        eligible_amount("100_000", 0.0, 9.0, 12)  # type: ignore[arg-type]
+    with pytest.raises(LoanCalcError):
+        eligible_amount(100_000, 0.0, 9.0, 12, foir=2.0)
+
+
+def test_validation_format_inr_non_numeric():
+    with pytest.raises(LoanCalcError):
+        format_inr("123")  # type: ignore[arg-type]
+
+
+def test_validation_schedule_to_csv_path_type(tmp_path):
+    rows = [{"month": 1, "emi": 1.0, "interest": 0.0, "principal": 1.0, "balance": 0.0}]
+    with pytest.raises(LoanCalcError):
+        schedule_to_csv(rows, tmp_path)  # type: ignore[arg-type]
+
+
+def test_validation_summary_start_type():
+    with pytest.raises(LoanCalcError):
+        summary(100_000, 9.0, 12, start="2026-01-01")  # type: ignore[arg-type]
