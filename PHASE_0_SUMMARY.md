@@ -20,6 +20,7 @@
 - The initial combined `git fetch/checkout` command hit a 30s timeout in the tool runner, but branch state is confirmed as `first-build` afterwards and `git status` is clean.
 - `requirements.txt` currently contains only `pytest` and `pytest-cov` (as it did before the move).
 
-### Commit
+### Commits
 - `07b759d chore: add gitignore (incl. graphify), test dependencies and prompt log`
+- `ca5b918 docs: add phase 0 summary`
 - Confirmed on `first-build`.
