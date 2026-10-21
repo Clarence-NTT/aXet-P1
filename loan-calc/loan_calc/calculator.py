@@ -9,12 +9,13 @@ DEFAULT_CURRENCY = "INR"
 def _monthly_rate(annual_rate: float) -> float:
     """Convert annual interest rate (percent) into a monthly fractional rate.
 
+    The standard nominal monthly rate is: `annual_rate / 1200`.
+
     Notes:
-        This implementation rounds the monthly rate to 4 decimal places:
-        `round(annual_rate / 1200, 4)`.
+        This returns the unrounded monthly rate. Rounding is applied later when
+        monetary amounts are rounded to 2 decimal places.
     """
-    r = round(annual_rate / 1200, 4)
-    return r
+    return annual_rate / 1200
 
 
 def emi(principal: float, annual_rate: float, tenure_months: int) -> float:
