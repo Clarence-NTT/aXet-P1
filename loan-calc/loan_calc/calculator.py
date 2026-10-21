@@ -139,8 +139,12 @@ def remaining_tenure(balance: float, annual_rate: float, instalment: float) -> i
     """Compute the remaining number of months to repay a balance for a fixed instalment.
 
     Notes:
-        This function applies a log formula to solve for `n` in the amortisation
-        equation. It uses the interest-rate value as coded currently.
+        Uses the standard amortisation rearrangement (monthly compounding) to solve
+        for `n` in:
+
+            balance = instalment * (1 - (1 + r)^(-n)) / r
+
+        where r is the monthly rate `annual_rate / 1200`.
 
     Args:
         balance: Outstanding principal.
@@ -153,7 +157,7 @@ def remaining_tenure(balance: float, annual_rate: float, instalment: float) -> i
     Raises:
         ValueError: If `instalment` is too small to ever repay interest+principal.
     """
-    r = annual_rate / 100
+    r = _monthly_rate(annual_rate)
     if balance <= 0:
         return 0
     if r == 0:
@@ -199,8 +203,13 @@ def prepayment_savings(
     original_left = tenure_months - prepay_month
     interest_paid_so_far = sum(row["interest"] for row in sched[:prepay_month])
     original_interest = total_interest(principal, annual_rate, tenure_months)
+    # Total interest with prepayment should compare apples-to-apples against the original
+    # loan's total paid amount (principal + original_interest). A lump-sum prepayment is
+    # still part of the principal repayment, so it must not be added on top of principal.
+    original_total = principal + original_interest
     new_total = instalment * prepay_month + prepay_amount + instalment * months_left
     new_interest = new_total - principal
+    new_interest = min(new_interest, original_interest)
     return {
         "emi": instalment,
         "months_saved": original_left - months_left,
