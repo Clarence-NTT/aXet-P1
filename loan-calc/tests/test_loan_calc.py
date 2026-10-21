@@ -52,10 +52,27 @@ def test_emi_one_month():
     assert emi(p, 9.0, 1) == pytest.approx(expected, abs=0.01)
 
 
+def _true_emi(principal: float, annual_rate: float, tenure_months: int) -> float:
+    """Independent EMI calculation (no rounding of monthly rate)."""
+    r = annual_rate / 1200
+    if r == 0:
+        return principal / tenure_months
+    f = (1 + r) ** tenure_months
+    return principal * r * f / (f - 1)
+
+
 def test_emi_large_principal_is_finite_and_positive():
     val = emi(1_000_000_000_000, 7.25, 240)
     assert math.isfinite(val)
     assert val > 0
+
+
+@pytest.mark.parametrize("rate", [7.25, 8.5, 10.35, 11.9])
+def test_emi_non_round_rates(rate):
+    # Catches the historical bug where monthly rate was rounded too early.
+    # Expected derived independently via the EMI formula.
+    expected = _true_emi(2_500_000, rate, 180)
+    assert emi(2_500_000, rate, 180) == pytest.approx(expected, abs=0.01)
 
 
 def test_schedule_one_month_row_and_balance_zero():
