@@ -9,7 +9,7 @@ It has no tests and no documentation. Users report that some numbers are wrong. 
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 ```
 
 ## Try it
