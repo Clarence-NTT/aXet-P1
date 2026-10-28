@@ -1,29 +1,7 @@
-# loan-calc (starter for Assignment P1)
+# loan-calc
 
-A small Python module for retail loan calculations: EMI, amortisation schedule, prepayment savings, offer comparison and eligibility.
+This package lives under `aXet-P1/loan-calc/`.
 
-It has no tests and no documentation. Users report that some numbers are wrong. Your job is described in Assignment P1.
+For setup, CLI usage, and running tests from the repo root, see:
 
-## Setup
-
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r ../requirements.txt
-```
-
-## Try it
-
-```bash
-python cli.py 1000000 9 240
-python cli.py 1000000 9 240 --schedule
-python cli.py 1000000 9 240 --prepay-month 24 --prepay-amount 200000
-```
-
-## Run tests (once you have written them)
-
-```bash
-pytest --cov=loan_calc --cov-report=term-missing
-```
-
-Put your tests in the `tests/` folder.
+- `aXet-P1/README.md`
