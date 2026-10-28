@@ -7,7 +7,7 @@ from loan_calc import amortisation_schedule, prepayment_savings, summary
 def main():
     ap = argparse.ArgumentParser(description="Loan calculator")
     ap.add_argument("principal", type=float)
-    ap.add_argument("rate", type=float, help="annual interest rate in %")
+    ap.add_argument("rate", type=float, help="annual interest rate in %%")
     ap.add_argument("tenure", type=int, help="tenure in months")
     ap.add_argument("--schedule", action="store_true")
     ap.add_argument("--prepay-month", type=int)
