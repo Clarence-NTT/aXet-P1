@@ -1,0 +1,21 @@
+* 32b51e1 (HEAD -> first-build, origin/first-build) docs: fix root README CLI command by setting PYTHONPATH
+* 86717d4 docs: move usage instructions to repo root README
+* 73f164b fix: escape percent sign in CLI help
+* 8ad46ce docs: neaten prompt log formatting
+* c08c03a test: add parametrized EMI tests for non-round rates
+* 4fab99a docs: finalise prompt log
+* 2fcea8f feat: add input validation and custom exception hierarchy with tests
+* d80333d test: consolidate pytest suite into single test module
+* aeb10e1 chore: untrack graphify metadata from repo
+* 892fb76 test: raise line coverage to 93%
+* 1c925d5 fix: correct remaining tenure and prepayment savings interest math
+* 2bebf2f fix: use unrounded monthly rate for interest calculations
+* a7bf7e2 fix: include final month in amortisation schedule
+* 013a2a6 test: add pytest suite covering EMI, schedule and prepayment edge cases
+* 9b2c43d docs: add docstrings and type hints to public functions
+* b0aa4c0 docs: add ARCHITECTURE.md describing module structure and formulas
+* d4b2325 docs: update phase 0 summary with commit list
+* ca5b918 docs: add phase 0 summary
+* 07b759d chore: add gitignore (incl. graphify), test dependencies and prompt log
+* 355b77d (origin/main, origin/HEAD, main) Add loan-calc python module
+* daacf7c Initial commit
